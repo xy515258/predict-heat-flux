@@ -1,0 +1,127 @@
+# LAMMPS input script for thermal conductivity of solid Ar
+
+units       real
+variable    T equal 70
+variable    V equal vol
+variable    dt equal 4.0
+variable    p equal 200     # correlation length
+variable    s equal 10      # sample interval
+variable    d equal $p*$s   # dump interval
+
+# convert from LAMMPS real units to SI
+
+variable    kB equal 1.3806504e-23    # [J/K] Boltzmann
+variable    kCal2J equal 4186.0/6.02214e23
+variable    A2m equal 1.0e-10
+variable    fs2s equal 1.0e-15
+variable    convert equal ${kCal2J}*${kCal2J}/${fs2s}/${A2m}
+
+# setup problem
+
+dimension    3
+boundary     p p p
+lattice      fcc 5.376 orient x 1 0 0 orient y 0 1 0 orient z 0 0 1
+region       box block 0 32 0 4 0 4
+create_box   1 box
+create_atoms 1 box
+mass      1 39.948
+pair_style   lj/cut 13.0
+pair_coeff   * * 0.2381 3.405
+timestep     ${dt}
+thermo            200
+
+# equilibration and thermalization
+region HotRegion block 14 18 INF INF INF INF
+region ColdRegion1 block 0 2 INF INF INF INF
+region ColdRegion2 block 30 32 INF INF INF INF
+region SampleRegion1 block 2 4 INF INF INF INF
+region SampleRegion2 block 4 6 INF INF INF INF
+region SampleRegion3 block 6 8 INF INF INF INF
+region SampleRegion4 block 8 10 INF INF INF INF
+region SampleRegion5 block 10 12 INF INF INF INF
+region SampleRegion6 block 12 14 INF INF INF INF
+region SampleRegion7 block 18 20 INF INF INF INF
+region SampleRegion8 block 20 22 INF INF INF INF
+region SampleRegion9 block 22 24 INF INF INF INF
+region SampleRegion10 block 24 26 INF INF INF INF
+region SampleRegion11 block 26 28 INF INF INF INF
+region SampleRegion12 block 28 30 INF INF INF INF
+region ColdRegion union 2 ColdRegion1 ColdRegion2
+region SampleRegion union 12 SampleRegion1 SampleRegion2 SampleRegion3 SampleRegion4 SampleRegion5 SampleRegion6 SampleRegion7 SampleRegion8 SampleRegion9 SampleRegion10 SampleRegion11 SampleRegion12
+region SampleRegionLeft union 6 SampleRegion1 SampleRegion2 SampleRegion3 SampleRegion4 SampleRegion5 SampleRegion6
+region SampleRegionRight union 6 SampleRegion7 SampleRegion8 SampleRegion9 SampleRegion10 SampleRegion11 SampleRegion12
+
+
+
+group HotAtoms region HotRegion
+group ColdAtoms  region ColdRegion
+group SampleAtoms region SampleRegion
+group SampleAtomsLeft region SampleRegionLeft
+group SampleAtomsRight region SampleRegionRight
+group SampleAtoms1 region SampleRegion1
+group SampleAtoms2 region SampleRegion2
+group SampleAtoms3 region SampleRegion3
+group SampleAtoms4 region SampleRegion4
+group SampleAtoms5 region SampleRegion5
+group SampleAtoms6 region SampleRegion6
+group SampleAtoms7 region SampleRegion7
+group SampleAtoms8 region SampleRegion8
+group SampleAtoms9 region SampleRegion9
+group SampleAtoms10 region SampleRegion10
+group SampleAtoms11 region SampleRegion11
+group SampleAtoms12 region SampleRegion12
+
+velocity     ColdAtoms create 20 103486 mom yes rot yes dist gaussian
+velocity     SampleAtoms create 50 102346 mom yes rot yes dist gaussian
+velocity     HotAtoms create 80 102486 mom yes rot yes dist gaussian
+fix          NVT1 ColdAtoms nvt temp 20 20 10 drag 0.2
+fix          NVT2 HotAtoms nvt temp 80 80 10 drag 0.2
+fix          NVE SampleAtoms nve
+run          20000
+unfix NVT1
+unfix NVT2
+unfix NVE
+
+reset_timestep 0
+compute      myKE1 SampleAtomsLeft ke/atom
+compute      myPE1 SampleAtomsLeft pe/atom
+compute      myStress1 SampleAtomsLeft stress/atom virial
+compute      flux1 SampleAtomsLeft heat/flux myKE1 myPE1 myStress1
+
+compute      myKE2 SampleAtomsRight ke/atom
+compute      myPE2 SampleAtomsRight pe/atom
+compute      myStress2 SampleAtomsRight stress/atom virial
+compute      flux2 SampleAtomsRight heat/flux myKE2 myPE2 myStress2
+
+compute      Temp1 SampleAtoms1 temp
+compute      Temp2 SampleAtoms2 temp
+compute      Temp3 SampleAtoms3 temp
+compute      Temp4 SampleAtoms4 temp
+compute      Temp5 SampleAtoms5 temp
+compute      Temp6 SampleAtoms6 temp
+compute      Temp7 SampleAtoms7 temp
+compute      Temp8 SampleAtoms8 temp
+compute      Temp9 SampleAtoms9 temp
+compute      Temp10 SampleAtoms10 temp
+compute      Temp11 SampleAtoms11 temp
+compute      Temp12 SampleAtoms12 temp
+variable     T1 equal c_Temp1
+variable     T2 equal c_Temp2
+variable     T3 equal c_Temp3
+variable     T4 equal c_Temp4
+variable     T5 equal c_Temp5
+variable     T6 equal c_Temp6
+variable     T7 equal c_Temp7
+variable     T8 equal c_Temp8
+variable     T9 equal c_Temp9
+variable     T10 equal c_Temp10
+variable     T11 equal c_Temp11
+variable     T12 equal c_Temp12
+
+fix          NVT1 ColdAtoms nvt temp 20 20 10 drag 0.2
+fix          NVT2 HotAtoms nvt temp 80 80 10 drag 0.2
+fix          NVE SampleAtoms nve
+fix          AVE all ave/time 100 100 10000  c_flux1[1] c_flux1[2] c_flux1[3] c_flux2[1] c_flux2[2] c_flux2[3] v_T1 v_T2 v_T3 v_T4 v_T5 v_T6 v_T7 v_T8 v_T9 v_T10 v_T11 v_T12 file heatflux.dat
+
+thermo_style custom step temp c_flux1[1] c_flux1[2] c_flux1[3] c_flux2[1] c_flux2[2] c_flux2[3] v_T1 v_T2 v_T3 v_T4 v_T5 v_T6 v_T7 v_T8 v_T9 v_T10 v_T11 v_T12
+run          100000
